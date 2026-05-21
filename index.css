@@ -1207,6 +1207,11 @@ body {
   border: 1px solid #00ff87;
 }
 
+.legend-yellow {
+  background: linear-gradient(135deg, rgba(255, 183, 3, 0.85), rgba(255, 183, 3, 0.15));
+  border: 1px solid #ffb703;
+}
+
 .legend-red {
   background: linear-gradient(135deg, rgba(255, 42, 109, 0.85), rgba(255, 42, 109, 0.15));
   border: 1px solid #ff2a6d;

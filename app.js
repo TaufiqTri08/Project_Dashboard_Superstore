@@ -255,14 +255,21 @@ function populateFilterDropdowns() {
   const regions = ['ALL', ...new Set(superstoreData.map(d => d.region).filter(Boolean))].sort();
   const segments = ['ALL', ...new Set(superstoreData.map(d => d.segment).filter(Boolean))].sort();
   const categories = ['ALL', ...new Set(superstoreData.map(d => d.category).filter(Boolean))].sort();
+  const years = [...new Set(superstoreData.map(d => d.tahun).filter(Boolean))].sort((a,b) => b - a);
   
   const selectRegion = document.getElementById('filterRegion');
   const selectSegment = document.getElementById('filterSegment');
   const selectCategory = document.getElementById('filterCategory');
+  const selectTahunV3 = document.getElementById('filterTahunV3');
   
   selectRegion.innerHTML = regions.map(r => `<option value="${r}">${r === 'ALL' ? 'Semua Region' : r}</option>`).join('');
   selectSegment.innerHTML = segments.map(s => `<option value="${s}">${s === 'ALL' ? 'Semua Segment' : s}</option>`).join('');
   selectCategory.innerHTML = categories.map(c => `<option value="${c}">${c === 'ALL' ? 'Semua Kategori' : c}</option>`).join('');
+  
+  if (selectTahunV3) {
+    selectTahunV3.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+    if (years.length > 0) selectTahunV3.value = years[0];
+  }
 }
 
 function setupFilters() {
@@ -277,6 +284,13 @@ function setupFilters() {
     document.getElementById('filterCategory').value = 'ALL';
     applyFilters();
   });
+
+  const selectTahunV3 = document.getElementById('filterTahunV3');
+  if (selectTahunV3) {
+    selectTahunV3.addEventListener('change', () => {
+      if (currentViewId === 'view3') renderView3();
+    });
+  }
 }
 
 function applyFilters() {
@@ -433,29 +447,51 @@ function renderView1() {
   const ctx = document.getElementById('v1SalesChart').getContext('2d');
   
   // Cyberpunk neon gradients for bars
-  const gradCyan = ctx.createLinearGradient(0, 0, 0, 300);
-  gradCyan.addColorStop(0, 'rgba(0, 242, 254, 0.85)');
-  gradCyan.addColorStop(1, 'rgba(0, 242, 254, 0.15)');
-  
-  const gradPurple = ctx.createLinearGradient(0, 0, 0, 300);
-  gradPurple.addColorStop(0, 'rgba(157, 78, 221, 0.85)');
-  gradPurple.addColorStop(1, 'rgba(157, 78, 221, 0.15)');
-  
   const gradGreen = ctx.createLinearGradient(0, 0, 0, 300);
   gradGreen.addColorStop(0, 'rgba(0, 255, 135, 0.85)');
   gradGreen.addColorStop(1, 'rgba(0, 255, 135, 0.15)');
+
+  const gradYellow = ctx.createLinearGradient(0, 0, 0, 300);
+  gradYellow.addColorStop(0, 'rgba(255, 183, 3, 0.85)');
+  gradYellow.addColorStop(1, 'rgba(255, 183, 3, 0.15)');
+
+  const gradRed = ctx.createLinearGradient(0, 0, 0, 300);
+  gradRed.addColorStop(0, 'rgba(255, 42, 109, 0.85)');
+  gradRed.addColorStop(1, 'rgba(255, 42, 109, 0.15)');
   
-  // Check which month is highest to color it Neon Green
-  const maxIdx = salesValues.indexOf(Math.max(...salesValues));
-  const bgGradients = [gradCyan, gradPurple, gradCyan];
-  if (maxIdx !== -1) {
-    bgGradients[maxIdx] = gradGreen; // Highlight peak in Neon Green!
-  }
+  // Calculate Thresholds based on max sales
+  const maxSales = Math.max(...salesValues);
+  const highThreshold = maxSales * 0.8;
+  const lowThreshold = maxSales * 0.5;
+
+  const bgGradients = salesValues.map(val => {
+    if (val >= highThreshold) return gradGreen;
+    if (val >= lowThreshold) return gradYellow;
+    return gradRed;
+  });
+
+  const borderColors = salesValues.map(val => {
+    if (val >= highThreshold) return '#00ff87';
+    if (val >= lowThreshold) return '#ffb703';
+    return '#ff2a6d';
+  });
+
+  // Populate Legend
+  const legendHtml = `
+    <div class="legend-item" data-tooltip="Tinggi (>= ${formatUSDDecimal(highThreshold)})">
+      <span class="legend-color legend-green"></span>
+    </div>
+    <div class="legend-item" data-tooltip="Sedang (${formatUSDDecimal(lowThreshold)} - ${formatUSDDecimal(highThreshold)})">
+      <span class="legend-color legend-yellow"></span>
+    </div>
+    <div class="legend-item" data-tooltip="Rendah (< ${formatUSDDecimal(lowThreshold)})">
+      <span class="legend-color legend-red"></span>
+    </div>
+  `;
+  document.getElementById('v1-legend').innerHTML = legendHtml;
   
-  const borderColors = ['#00f2fe', '#9d4edd', '#00f2fe'];
-  if (maxIdx !== -1) {
-    borderColors[maxIdx] = '#00ff87';
-  }
+  // Also keep maxIdx for text insight
+  const maxIdx = salesValues.indexOf(maxSales);
   
   activeCharts['v1SalesChart'] = new Chart(ctx, {
     type: 'bar',
@@ -517,6 +553,8 @@ function renderView1() {
     Penjualan melonjak tajam dan memuncak pada bulan <strong>${peakMonthName}</strong> dengan rekor <strong>${peakSalesVal}</strong>, 
     meningkat pesat dibandingkan bulan November (<strong>${novSalesVal}</strong>). Lonjakan dramatis di akhir tahun ini didorong 
     oleh tingginya seasonal holiday demand, menobatkan Q4 sebagai penutup tahun dengan pencapaian finansial paling sukses.
+    <br><br>
+    <strong>Saran Strategis:</strong> Mengingat tren lonjakan yang selalu terjadi di penghujung tahun, disarankan untuk mempersiapkan kampanye promosi <em>early-bird</em> dan memastikan ketersediaan stok (inventory) untuk produk-produk unggulan sejak bulan Oktober. Hal ini bertujuan untuk mengantisipasi <em>bottleneck</em> logistik dan memaksimalkan pendapatan sebelum puncak <em>holiday season</em> tiba.
   `;
 }
 
@@ -575,24 +613,53 @@ function renderView2() {
   const labels = quarters.map(q => q.label);
   const salesValues = quarters.map(q => q.sales);
   
-  // Identify index of highest sales quarter
-  const maxIdx = salesValues.indexOf(Math.max(...salesValues));
-  
   // Horizontal Bar Chart
   destroyChart('v2QuartersChart');
   const ctx = document.getElementById('v2QuartersChart').getContext('2d');
   
   // Neon gradients for horizontal bars
-  const gradPrimary = ctx.createLinearGradient(0, 0, 400, 0);
-  gradPrimary.addColorStop(0, 'rgba(0, 242, 254, 0.85)');
-  gradPrimary.addColorStop(1, 'rgba(157, 78, 221, 0.15)');
+  const gradGreen = ctx.createLinearGradient(0, 0, 400, 0);
+  gradGreen.addColorStop(0, 'rgba(0, 255, 135, 0.85)');
+  gradGreen.addColorStop(1, 'rgba(0, 255, 135, 0.15)');
+
+  const gradYellow = ctx.createLinearGradient(0, 0, 400, 0);
+  gradYellow.addColorStop(0, 'rgba(255, 183, 3, 0.85)');
+  gradYellow.addColorStop(1, 'rgba(255, 183, 3, 0.15)');
+
+  const gradRed = ctx.createLinearGradient(0, 0, 400, 0);
+  gradRed.addColorStop(0, 'rgba(255, 42, 109, 0.85)');
+  gradRed.addColorStop(1, 'rgba(255, 42, 109, 0.15)');
   
-  const gradSuccess = ctx.createLinearGradient(0, 0, 400, 0);
-  gradSuccess.addColorStop(0, 'rgba(0, 255, 135, 0.85)');
-  gradSuccess.addColorStop(1, 'rgba(0, 255, 135, 0.15)');
-  
-  const bgGradients = quarters.map((q, idx) => idx === maxIdx ? gradSuccess : gradPrimary);
-  const borderColors = quarters.map((q, idx) => idx === maxIdx ? '#00ff87' : '#00f2fe');
+  // Calculate Thresholds based on max sales
+  const maxSales = Math.max(...salesValues);
+  const highThreshold = maxSales * 0.8;
+  const lowThreshold = maxSales * 0.5;
+
+  const bgGradients = salesValues.map(val => {
+    if (val >= highThreshold) return gradGreen;
+    if (val >= lowThreshold) return gradYellow;
+    return gradRed;
+  });
+
+  const borderColors = salesValues.map(val => {
+    if (val >= highThreshold) return '#00ff87';
+    if (val >= lowThreshold) return '#ffb703';
+    return '#ff2a6d';
+  });
+
+  // Populate Legend
+  const legendHtml = `
+    <div class="legend-item" data-tooltip="Tinggi (>= ${formatUSDDecimal(highThreshold)})">
+      <span class="legend-color legend-green"></span>
+    </div>
+    <div class="legend-item" data-tooltip="Sedang (${formatUSDDecimal(lowThreshold)} - ${formatUSDDecimal(highThreshold)})">
+      <span class="legend-color legend-yellow"></span>
+    </div>
+    <div class="legend-item" data-tooltip="Rendah (< ${formatUSDDecimal(lowThreshold)})">
+      <span class="legend-color legend-red"></span>
+    </div>
+  `;
+  document.getElementById('v2-legend').innerHTML = legendHtml;
   
   activeCharts['v2QuartersChart'] = new Chart(ctx, {
     type: 'bar',
@@ -680,11 +747,19 @@ function renderView2() {
    VIEW 3 - TREN BULANAN (TENSION)
    ========================================================================= */
 function renderView3() {
-  // 1. Calculate sales per month for 2026
+  const selectTahunV3 = document.getElementById('filterTahunV3');
+  const selectedYear = selectTahunV3 ? parseInt(selectTahunV3.value) || 2026 : 2026;
+
+  const titleEl = document.getElementById('v3Title');
+  if (titleEl) {
+    titleEl.innerHTML = `<i class="fas fa-chart-area"></i> Tren Penjualan Bulanan (Tahun ${selectedYear})`;
+  }
+
+  // 1. Calculate sales per month for selectedYear
   const monthlySales = Array(12).fill(0);
   
   filteredData.forEach(d => {
-    if (d.tahun === 2026 && d.bulan >= 1 && d.bulan <= 12) {
+    if (d.tahun === selectedYear && d.bulan >= 1 && d.bulan <= 12) {
       monthlySales[d.bulan - 1] += d.sales;
     }
   });
@@ -694,7 +769,7 @@ function renderView3() {
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
   ];
   
-  // Calculate average sales in 2026
+  // Calculate average sales in selectedYear
   const nonZeroMonths = monthlySales.filter(v => v > 0);
   const avgSales = nonZeroMonths.length > 0 ? nonZeroMonths.reduce((a, b) => a + b, 0) / nonZeroMonths.length : 0;
   
@@ -702,7 +777,7 @@ function renderView3() {
   const targetSales = avgSales * 1.08;
   const targetData = Array(12).fill(targetSales);
   
-  // Identify peak and trough months in 2026
+  // Identify peak and trough months in selectedYear
   const maxIdx = monthlySales.indexOf(Math.max(...monthlySales));
   const minIdx = monthlySales.indexOf(Math.min(...monthlySales.filter(v => v > 0))); // ignore months with zero if any
   
@@ -813,7 +888,7 @@ function renderView3() {
   const percentAboveTarget = targetSales > 0 ? ((monthlySales[maxIdx] - targetSales) / targetSales) * 100 : 0;
   
   document.getElementById('v3-insight-text').innerHTML = `
-    Tren bulanan sepanjang tahun 2026 menunjukkan dinamika bisnis yang bergejolak (<strong>tension</strong>). 
+    Tren bulanan sepanjang tahun <strong>${selectedYear}</strong> menunjukkan dinamika bisnis yang bergejolak (<strong>tension</strong>). 
     Penjualan menyentuh titik terendah pada bulan <strong>${troughMonth}</strong> sebesar <strong>${troughSales}</strong> yang berada jauh di bawah garis target bulanan sebesar <strong>${targetSalesVal}</strong>. 
     Namun, gejolak ini diikuti oleh pemulihan (<em>rally</em>) agresif di paruh kedua tahun ini, memuncak pada bulan <strong>${peakMonth}</strong> dengan mencatatkan rekor penjualan tertinggi sebesar <strong>${peakSales}</strong>, 
     atau melampaui target bulanan sebesar <strong>${formatPercent(percentAboveTarget)}</strong>. 

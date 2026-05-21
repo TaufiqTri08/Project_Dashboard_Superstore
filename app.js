@@ -260,49 +260,46 @@ function populateFilterDropdowns() {
   const selectRegion = document.getElementById('filterRegion');
   const selectSegment = document.getElementById('filterSegment');
   const selectCategory = document.getElementById('filterCategory');
-  const selectTahunV3 = document.getElementById('filterTahunV3');
+  const selectTahun = document.getElementById('filterTahun');
   
   selectRegion.innerHTML = regions.map(r => `<option value="${r}">${r === 'ALL' ? 'Semua Region' : r}</option>`).join('');
   selectSegment.innerHTML = segments.map(s => `<option value="${s}">${s === 'ALL' ? 'Semua Segment' : s}</option>`).join('');
   selectCategory.innerHTML = categories.map(c => `<option value="${c}">${c === 'ALL' ? 'Semua Kategori' : c}</option>`).join('');
   
-  if (selectTahunV3) {
-    selectTahunV3.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
-    if (years.length > 0) selectTahunV3.value = years[0];
+  if (selectTahun) {
+    selectTahun.innerHTML = `<option value="ALL">Semua Tahun</option>` + years.map(y => `<option value="${y}">${y}</option>`).join('');
   }
 }
 
 function setupFilters() {
-  const selects = ['filterRegion', 'filterSegment', 'filterCategory'];
+  const selects = ['filterTahun', 'filterRegion', 'filterSegment', 'filterCategory'];
   selects.forEach(id => {
-    document.getElementById(id).addEventListener('change', applyFilters);
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', applyFilters);
   });
   
   document.getElementById('btnResetFilters').addEventListener('click', () => {
+    if (document.getElementById('filterTahun')) document.getElementById('filterTahun').value = 'ALL';
     document.getElementById('filterRegion').value = 'ALL';
     document.getElementById('filterSegment').value = 'ALL';
     document.getElementById('filterCategory').value = 'ALL';
     applyFilters();
   });
-
-  const selectTahunV3 = document.getElementById('filterTahunV3');
-  if (selectTahunV3) {
-    selectTahunV3.addEventListener('change', () => {
-      if (currentViewId === 'view3') renderView3();
-    });
-  }
 }
 
 function applyFilters() {
+  const tahunEl = document.getElementById('filterTahun');
+  const tahunVal = tahunEl ? tahunEl.value : 'ALL';
   const regionVal = document.getElementById('filterRegion').value;
   const segmentVal = document.getElementById('filterSegment').value;
   const categoryVal = document.getElementById('filterCategory').value;
   
   filteredData = superstoreData.filter(item => {
+    const matchTahun = tahunVal === 'ALL' || item.tahun.toString() === tahunVal;
     const matchRegion = regionVal === 'ALL' || item.region === regionVal;
     const matchSegment = segmentVal === 'ALL' || item.segment === segmentVal;
     const matchCategory = categoryVal === 'ALL' || item.category === categoryVal;
-    return matchRegion && matchSegment && matchCategory;
+    return matchTahun && matchRegion && matchSegment && matchCategory;
   });
   
   // Re-render current view with new filtered data
@@ -393,9 +390,30 @@ function getQuarterKPIs(year, quarter, dataset) {
 }
 
 /* =========================================================================
+   HELPER: Get Active Year
+   ========================================================================= */
+function getActiveYear() {
+  const tahunEl = document.getElementById('filterTahun');
+  if (tahunEl && tahunEl.value !== 'ALL') {
+    return parseInt(tahunEl.value);
+  }
+  if (filteredData.length > 0) {
+    return Math.max(...filteredData.map(d => d.tahun));
+  }
+  return 2026;
+}
+
+/* =========================================================================
    VIEW 1 - PEMBUKA (HOOK)
    ========================================================================= */
 function renderView1() {
+  const activeYear = getActiveYear();
+  
+  const titleEl = document.getElementById('v1BarTitle');
+  if (titleEl) titleEl.innerHTML = `<i class="fas fa-chart-bar"></i> Total Penjualan Kuartal Terakhir (Q4 ${activeYear})`;
+  const subEl = document.getElementById('v1BarSub');
+  if (subEl) subEl.textContent = `Perbandingan volume sales 3 bulan penutup tahun ${activeYear}.`;
+
   // 1. Overall KPIs in current active filtered data
   const totalSalesVal = filteredData.reduce((sum, d) => sum + d.sales, 0);
   const uniqueOrders = new Set(filteredData.map(d => d.orderId));
@@ -410,9 +428,9 @@ function renderView1() {
   document.getElementById('v1-aov-val').textContent = formatUSDDecimal(avgOrderVal);
   document.getElementById('v1-customers-val').textContent = totalCustomersVal.toLocaleString('en-US');
   
-  // 2. Growth Indicators (Q4 2026 vs Q3 2026)
-  const q3 = getQuarterKPIs(2026, 'Q3', filteredData);
-  const q4 = getQuarterKPIs(2026, 'Q4', filteredData);
+  // 2. Growth Indicators (Q4 activeYear vs Q3 activeYear)
+  const q3 = getQuarterKPIs(activeYear, 'Q3', filteredData);
+  const q4 = getQuarterKPIs(activeYear, 'Q4', filteredData);
   
   const salesGrowth = q3.sales > 0 ? ((q4.sales - q3.sales) / q3.sales) * 100 : 0;
   const ordersGrowth = q3.orders > 0 ? ((q4.orders - q3.orders) / q3.orders) * 100 : 0;
@@ -424,15 +442,15 @@ function renderView1() {
   updateGrowthBadge('v1-aov-growth', aovGrowth);
   updateGrowthBadge('v1-customers-growth', customersGrowth);
   
-  // 3. Bar Chart: Sales by Month (Q4 2026 - Last 3 Months: Oct, Nov, Dec)
+  // 3. Bar Chart: Sales by Month (Q4 activeYear - Last 3 Months: Oct, Nov, Dec)
   const last3MonthsData = [
-    { name: 'Oktober 2026', sales: 0, count: 0 },
-    { name: 'November 2026', sales: 0, count: 0 },
-    { name: 'Desember 2026', sales: 0, count: 0 }
+    { name: `Oktober ${activeYear}`, sales: 0, count: 0 },
+    { name: `November ${activeYear}`, sales: 0, count: 0 },
+    { name: `Desember ${activeYear}`, sales: 0, count: 0 }
   ];
   
   filteredData.forEach(d => {
-    if (d.tahun === 2026) {
+    if (d.tahun === activeYear) {
       if (d.bulan === 10) last3MonthsData[0].sales += d.sales;
       else if (d.bulan === 11) last3MonthsData[1].sales += d.sales;
       else if (d.bulan === 12) last3MonthsData[2].sales += d.sales;
@@ -549,7 +567,7 @@ function renderView1() {
   const novSalesVal = formatUSDDecimal(salesValues[1] || 0);
   
   document.getElementById('v1-insight-text').innerHTML = `
-    Berdasarkan data kuartal terakhir (Q4 2026), performa penjualan menunjukkan momentum tren positif yang luar biasa. 
+    Berdasarkan data kuartal terakhir (Q4 ${activeYear}), performa penjualan menunjukkan momentum tren positif yang luar biasa. 
     Penjualan melonjak tajam dan memuncak pada bulan <strong>${peakMonthName}</strong> dengan rekor <strong>${peakSalesVal}</strong>, 
     meningkat pesat dibandingkan bulan November (<strong>${novSalesVal}</strong>). Lonjakan dramatis di akhir tahun ini didorong 
     oleh tingginya seasonal holiday demand, menobatkan Q4 sebagai penutup tahun dengan pencapaian finansial paling sukses.
@@ -576,21 +594,26 @@ function updateGrowthBadge(id, growth) {
    VIEW 2 - OVERVIEW HISTORIS (CONTEXT)
    ========================================================================= */
 function renderView2() {
-  // 1. Calculate quarterly sales for the 4 quarters of 2026
+  const activeYear = getActiveYear();
+  
+  const titleEl = document.getElementById('v2BarTitle');
+  if (titleEl) titleEl.innerHTML = `<i class="fas fa-align-left"></i> Total Penjualan per Kuartal (Tahun ${activeYear})`;
+
+  // 1. Calculate quarterly sales for the 4 quarters of activeYear
   const quarters = [
-    { year: 2026, q: 'Q1', label: 'Q1 2026', sales: 0, orders: 0, customers: new Set(), prevSales: 0 },
-    { year: 2026, q: 'Q2', label: 'Q2 2026', sales: 0, orders: 0, customers: new Set(), prevSales: 0 },
-    { year: 2026, q: 'Q3', label: 'Q3 2026', sales: 0, orders: 0, customers: new Set(), prevSales: 0 },
-    { year: 2026, q: 'Q4', label: 'Q4 2026', sales: 0, orders: 0, customers: new Set(), prevSales: 0 }
+    { year: activeYear, q: 'Q1', label: `Q1 ${activeYear}`, sales: 0, orders: 0, customers: new Set(), prevSales: 0 },
+    { year: activeYear, q: 'Q2', label: `Q2 ${activeYear}`, sales: 0, orders: 0, customers: new Set(), prevSales: 0 },
+    { year: activeYear, q: 'Q3', label: `Q3 ${activeYear}`, sales: 0, orders: 0, customers: new Set(), prevSales: 0 },
+    { year: activeYear, q: 'Q4', label: `Q4 ${activeYear}`, sales: 0, orders: 0, customers: new Set(), prevSales: 0 }
   ];
   
-  // Fetch prior quarter (Q4 2025) for Q1 2026 growth calculations
-  const q4_2025 = getQuarterKPIs(2025, 'Q4', filteredData);
-  quarters[0].prevSales = q4_2025.sales;
+  // Fetch prior quarter (Q4 activeYear-1) for Q1 activeYear growth calculations
+  const q4_prev = getQuarterKPIs(activeYear - 1, 'Q4', filteredData);
+  quarters[0].prevSales = q4_prev.sales;
   
   // Populate the statistics
   filteredData.forEach(d => {
-    if (d.tahun === 2026) {
+    if (d.tahun === activeYear) {
       const idx = quarters.findIndex(q => q.q === d.quartal);
       if (idx !== -1) {
         quarters[idx].sales += d.sales;
@@ -747,8 +770,7 @@ function renderView2() {
    VIEW 3 - TREN BULANAN (TENSION)
    ========================================================================= */
 function renderView3() {
-  const selectTahunV3 = document.getElementById('filterTahunV3');
-  const selectedYear = selectTahunV3 ? parseInt(selectTahunV3.value) || 2026 : 2026;
+  const selectedYear = getActiveYear();
 
   const titleEl = document.getElementById('v3Title');
   if (titleEl) {
@@ -1224,20 +1246,29 @@ function renderView5() {
   const tableBody = document.getElementById('v5-table-body');
   tableBody.innerHTML = '';
   
+  const activeYear = getActiveYear();
+  const thGrowth = document.getElementById('v5TableGrowthHeader');
+  if (thGrowth) thGrowth.innerHTML = `Growth YoY (${activeYear} vs ${activeYear - 1})`;
+  
+  const segmentVal = document.getElementById('filterSegment').value;
+  const categoryVal = document.getElementById('filterCategory').value;
+
   regions.forEach((r, idx) => {
-    // Calculate % Growth YoY (2026 vs 2025) for each region
-    const sales2025 = filteredData
-      .filter(d => d.region === r.name && d.tahun === 2025)
+    // Calculate % Growth YoY for each region dynamically
+    const salesPrev = superstoreData
+      .filter(d => d.region === r.name && d.tahun === (activeYear - 1) && 
+                   (segmentVal === 'ALL' || d.segment === segmentVal) &&
+                   (categoryVal === 'ALL' || d.category === categoryVal))
       .reduce((sum, d) => sum + d.sales, 0);
       
-    const sales2026 = filteredData
-      .filter(d => d.region === r.name && d.tahun === 2026)
+    const salesCurr = filteredData
+      .filter(d => d.region === r.name && d.tahun === activeYear)
       .reduce((sum, d) => sum + d.sales, 0);
       
     let growth = 0;
     let growthBadgeClass = 'badge-pill';
-    if (sales2025 > 0) {
-      growth = ((sales2026 - sales2025) / sales2025) * 100;
+    if (salesPrev > 0) {
+      growth = ((salesCurr - salesPrev) / salesPrev) * 100;
       growthBadgeClass += growth >= 0 ? ' success' : ' danger';
     } else {
       growthBadgeClass += ' primary';
@@ -1254,7 +1285,7 @@ function renderView5() {
       <td><strong>${r.name}</strong></td>
       <td class="text-right"><strong>${formatUSDDecimal(r.sales)}</strong></td>
       <td class="text-center">
-        <span class="${growthBadgeClass}">${sales2025 > 0 ? formatPercent(growth) : 'N/A'}</span>
+        <span class="${growthBadgeClass}">${salesPrev > 0 ? formatPercent(growth) : 'N/A'}</span>
       </td>
       <td class="text-center">${r.customers.toLocaleString('en-US')}</td>
       <td class="text-center">
@@ -1366,26 +1397,28 @@ function renderView6() {
    VIEW 7 - RINGKASAN & TEMUAN UTAMA (ACTION)
    ========================================================================= */
 function renderView7() {
-  // 1. Calculations for Action Plan 1: Q4 2026 Sales & Growth
-  const q3 = getQuarterKPIs(2026, 'Q3', filteredData);
-  const q4 = getQuarterKPIs(2026, 'Q4', filteredData);
+  const activeYear = getActiveYear();
+
+  // 1. Calculations for Action Plan 1: Q4 activeYear Sales & Growth
+  const q3 = getQuarterKPIs(activeYear, 'Q3', filteredData);
+  const q4 = getQuarterKPIs(activeYear, 'Q4', filteredData);
   const growthQ4 = q3.sales > 0 ? ((q4.sales - q3.sales) / q3.sales) * 100 : 0;
   
   const lastMonthSalesData = filteredData
-    .filter(d => d.tahun === 2026 && d.bulan === 12)
+    .filter(d => d.tahun === activeYear && d.bulan === 12)
     .reduce((sum, d) => sum + d.sales, 0);
     
   document.getElementById('v7-card1-body').innerHTML = `
-    Kuartal penutup tahun (Q4 2026) mencatatkan lonjakan penjualan luar biasa sebesar 
-    <strong>${formatUSD(q4.sales)}</strong>, tumbuh secara agresif sebesar <strong>${formatPercent(growthQ4)}</strong> 
-    dibandingkan kuartal sebelumnya (Q3 2026). Puncak transaksi bulanan terkonsentrasi penuh pada bulan Desember 
+    Kuartal penutup (Q4 ${activeYear}) mencatatkan penjualan sebesar 
+    <strong>${formatUSD(q4.sales)}</strong>, tumbuh sebesar <strong>${formatPercent(growthQ4)}</strong> 
+    dibandingkan kuartal sebelumnya (Q3 ${activeYear}). Puncak transaksi bulanan di akhir tahun tercatat pada bulan Desember 
     dengan total realisasi <strong>${formatUSD(lastMonthSalesData)}</strong>.
   `;
   
   document.getElementById('v7-card1-bullets').innerHTML = `
-    <li>Pertumbuhan pesat Q4 mengonfirmasi kekuatan penyerapan produk di pasar menjelang akhir tahun.</li>
-    <li>Kombinasi promosi natal dan penutupan budget korporat menjadi akselerator revenue utama.</li>
-    <li>Disarankan menyiapkan capital expenditure logistik 15% lebih awal untuk menanggulangi lonjakan pesanan di tahun depan.</li>
+    <li>Pertumbuhan Q4 mengonfirmasi penyerapan produk yang tinggi menjelang akhir tahun.</li>
+    <li>Penutupan budget tahunan korporat serta momentum liburan menjadi akselerator revenue utama.</li>
+    <li>Disarankan menyiapkan <em>capital expenditure</em> logistik 15% lebih awal untuk menanggulangi lonjakan pesanan di Q1 ${activeYear + 1}.</li>
   `;
   
   // 2. Action Plan 2: Region YoY Growth
@@ -1403,68 +1436,90 @@ function renderView7() {
     return { name, sales: regData[name].sales, customers: regData[name].customers.size };
   }).sort((a, b) => b.sales - a.sales);
   
-  const topReg = sortedRegs[0] || { name: 'West', sales: 0, customers: 0 };
+  const topReg = sortedRegs[0] || { name: 'Semua Region', sales: 0, customers: 0 };
   
-  // YoY growth for top region
-  const rSales2025 = filteredData
-    .filter(d => d.region === topReg.name && d.tahun === 2025)
+  // Get filter states
+  const segmentVal = document.getElementById('filterSegment').value;
+  const categoryVal = document.getElementById('filterCategory').value;
+
+  // YoY growth for top region against activeYear - 1
+  const rSalesPrev = superstoreData
+    .filter(d => d.region === topReg.name && d.tahun === (activeYear - 1) && 
+                 (segmentVal === 'ALL' || d.segment === segmentVal) &&
+                 (categoryVal === 'ALL' || d.category === categoryVal))
     .reduce((sum, d) => sum + d.sales, 0);
-  const rSales2026 = filteredData
-    .filter(d => d.region === topReg.name && d.tahun === 2026)
-    .reduce((sum, d) => sum + d.sales, 0);
-  const rGrowth = rSales2025 > 0 ? ((rSales2026 - rSales2025) / rSales2025) * 100 : 0;
+  const rSalesCurr = topReg.sales;
+  const rGrowth = rSalesPrev > 0 ? ((rSalesCurr - rSalesPrev) / rSalesPrev) * 100 : 0;
   
   document.getElementById('v7-card2-body').innerHTML = `
-    Wilayah <strong>${topReg.name}</strong> mendominasi peta kontribusi pasar nasional dengan mengamankan total volume penjualan sebesar 
-    <strong>${formatUSD(topReg.sales)}</strong>. Wilayah ini tumbuh paling agresif dengan torehan pertumbuhan year-over-year (YoY) 
-    sebesar <strong>${formatPercent(rGrowth)}</strong> (2026 vs 2025).
+    Wilayah <strong>${topReg.name}</strong> mendominasi peta kontribusi pasar dengan total volume penjualan sebesar 
+    <strong>${formatUSD(topReg.sales)}</strong>. Wilayah ini mencatatkan pertumbuhan year-over-year (YoY) 
+    sebesar <strong>${formatPercent(rGrowth)}</strong> (${activeYear} vs ${activeYear - 1}).
   `;
   
   document.getElementById('v7-card2-bullets').innerHTML = `
-    <li>Menjadi region dengan basis pelanggan terluas, memayungi <strong>${topReg.customers.toLocaleString('en-US')}</strong> customer aktif.</li>
-    <li>Kategori Technology menjadi motor growth tercepat di wilayah kontributor terkuat ini.</li>
-    <li>Strategi replikasi program loyalti ${topReg.name} direkomendasikan untuk mendongkrak penjualan region Central/South.</li>
+    <li>Menjadi region dengan basis pelanggan terluas pada kriteria saat ini, memayungi <strong>${topReg.customers.toLocaleString('en-US')}</strong> customer aktif.</li>
+    <li>Tingkat penetrasi produk di wilayah ini berperan besar sebagai motor penggerak growth (pertumbuhan) utama.</li>
+    <li>Strategi replikasi program loyalti dari <strong>${topReg.name}</strong> direkomendasikan untuk diterapkan di region lain guna mendongkrak penjualan serentak.</li>
   `;
   
-  // 3. Action Plan 3: Low Margin furniture
-  const furSales = filteredData.filter(d => d.category === 'Furniture').reduce((sum, d) => sum + d.sales, 0);
-  const furProfit = filteredData.filter(d => d.category === 'Furniture').reduce((sum, d) => sum + d.profit, 0);
-  const furMargin = furSales > 0 ? (furProfit / furSales) * 100 : 0;
+  // 3. Action Plan 3: Lowest Margin Category (Dynamic)
+  const catStats = {};
+  filteredData.forEach(d => {
+    if (!catStats[d.category]) catStats[d.category] = { sales: 0, profit: 0, discounts: [] };
+    catStats[d.category].sales += d.sales;
+    catStats[d.category].profit += d.profit;
+    catStats[d.category].discounts.push(d.discount);
+  });
   
-  // Average discount on furniture
-  const furDiscounts = filteredData.filter(d => d.category === 'Furniture').map(d => d.discount);
-  const furAvgDiscount = furDiscounts.length > 0 ? (furDiscounts.reduce((a,b)=>a+b, 0) / furDiscounts.length) * 100 : 0;
+  let worstCat = '';
+  let worstMargin = Infinity;
+  let worstSales = 0;
+  let worstAvgDiscount = 0;
+  
+  Object.keys(catStats).forEach(c => {
+    const margin = catStats[c].sales > 0 ? (catStats[c].profit / catStats[c].sales) * 100 : 0;
+    if (margin < worstMargin) {
+      worstMargin = margin;
+      worstCat = c;
+      worstSales = catStats[c].sales;
+      const dArr = catStats[c].discounts;
+      worstAvgDiscount = dArr.length > 0 ? (dArr.reduce((a,b)=>a+b,0)/dArr.length) * 100 : 0;
+    }
+  });
+
+  const displayMargin = worstMargin === Infinity ? 0 : worstMargin;
   
   document.getElementById('v7-card3-body').innerHTML = `
-    Meskipun kategori <strong>Furniture</strong> menyumbangkan kontribusi volume penjualan yang sangat masif sebesar 
-    <strong>${formatUSD(furSales)}</strong>, namun margin profit bersih yang dikumpulkan sangat tipis, hanya berada di angka 
-    <strong>${furMargin.toFixed(1)}%</strong>. Faktor diskon yang berlebihan mencapai rata-rata <strong>${furAvgDiscount.toFixed(1)}%</strong> adalah pemicunya.
+    Kategori <strong>${worstCat || 'Produk'}</strong> menyumbangkan volume penjualan sebesar 
+    <strong>${formatUSD(worstSales)}</strong>, namun menghasilkan margin profit bersih yang paling rendah di antara lainnya, yaitu hanya 
+    <strong>${displayMargin.toFixed(1)}%</strong>. Faktor diskon rata-rata sebesar <strong>${worstAvgDiscount.toFixed(1)}%</strong> teridentifikasi sebagai salah satu pemicunya.
   `;
   
   document.getElementById('v7-card3-bullets').innerHTML = `
-    <li>Furniture menggerus profitabilitas bersih superstore akibat tingginya biaya handling logistik barang berat.</li>
-    <li>Merupakan area kritis dengan alarm <strong>Concern/Kritis</strong> merah yang membutuhkan tindakan restrukturisasi harga segera.</li>
-    <li>Aksi: Batasi promo diskon maksimal 10%, dan dorong upselling produk Office Supplies yang ringan dengan margin margin lebih tebal.</li>
+    <li>Tingkat margin yang rendah pada kategori <strong>${worstCat || 'Produk'}</strong> berpotensi menggerus profitabilitas bersih secara keseluruhan.</li>
+    <li>Area kritis ini membutuhkan tindakan evaluasi harga (restrukturisasi) atau penyesuaian biaya operasional segera.</li>
+    <li>Aksi: Batasi maksimal promo diskon yang tidak wajar, dan dorong upselling produk yang memiliki margin lebih tebal untuk kompensasi (subsidi silang).</li>
   `;
   
   // 4. Action Plan 4: AOV
-  const totalSalesVal = filteredData.reduce((sum, d) => sum + d.sales, 0);
-  const totalOrdersVal = new Set(filteredData.map(d => d.orderId)).size;
-  const aovVal = totalOrdersVal > 0 ? totalSalesVal / totalOrdersVal : 0;
+  const totalSalesAll = filteredData.reduce((sum, d) => sum + d.sales, 0);
+  const totalOrdersAll = new Set(filteredData.map(d => d.orderId)).size;
+  const aovVal = totalOrdersAll > 0 ? totalSalesAll / totalOrdersAll : 0;
   
-  // Category with highest average order value
-  const catAovs = {};
+  // Sub-category (instead of category) with highest AOV for more granularity if category is filtered
+  const subcatAovs = {};
   filteredData.forEach(d => {
-    if (!catAovs[d.category]) catAovs[d.category] = { sales: 0, orders: new Set() };
-    catAovs[d.category].sales += d.sales;
-    catAovs[d.category].orders.add(d.orderId);
+    if (!subcatAovs[d.subCategory]) subcatAovs[d.subCategory] = { sales: 0, orders: new Set() };
+    subcatAovs[d.subCategory].sales += d.sales;
+    subcatAovs[d.subCategory].orders.add(d.orderId);
   });
   
-  let topCatAovName = 'Technology';
+  let topCatAovName = '';
   let maxCatAovVal = -1;
-  Object.keys(catAovs).forEach(c => {
-    const oSize = catAovs[c].orders.size;
-    const aov = oSize > 0 ? catAovs[c].sales / oSize : 0;
+  Object.keys(subcatAovs).forEach(c => {
+    const oSize = subcatAovs[c].orders.size;
+    const aov = oSize > 0 ? subcatAovs[c].sales / oSize : 0;
     if (aov > maxCatAovVal) {
       maxCatAovVal = aov;
       topCatAovName = c;
@@ -1472,14 +1527,14 @@ function renderView7() {
   });
   
   document.getElementById('v7-card4-body').innerHTML = `
-    Rata-rata Nilai Pesanan (Average Order Value) berada di level stabil sebesar <strong>${formatUSDDecimal(aovVal)}</strong> per transaksi. 
-    Kategori dengan nilai transaksi rata-rata tertinggi dipimpin oleh <strong>${topCatAovName}</strong> dengan rata-rata 
+    Rata-rata Nilai Pesanan (Average Order Value) berada di angka <strong>${formatUSDDecimal(aovVal)}</strong> per transaksi. 
+    Jika di-breakdown lebih dalam, sub-kategori dengan nilai transaksi rata-rata tertinggi dipimpin oleh <strong>${topCatAovName || 'N/A'}</strong> dengan rata-rata 
     <strong>${formatUSDDecimal(maxCatAovVal)}</strong> per order.
   `;
   
   document.getElementById('v7-card4-bullets').innerHTML = `
-    <li>AOV yang stabil menunjukkan adanya loyalitas belanja, namun basket size (jumlah item per transaksi) masih berpeluang ditingkatkan.</li>
-    <li>Pemberlakuan cross-selling bundle antara Office Supplies dan Technology terbukti sukses memicu kenaikan transaksi.</li>
-    <li>Action Plan: Luncurkan skema gratis ongkir dengan minimum transaksi $250 untuk menaikkan target AOV sebesar 15% pada Q1 2027.</li>
+    <li>AOV yang sehat menunjukkan adanya kapabilitas daya beli (purchasing power) dari segmen pelanggan saat ini.</li>
+    <li>Pemberlakuan cross-selling bundle (paket bundling) terbukti ampuh memicu kenaikan rata-rata transaksi.</li>
+    <li>Action Plan: Luncurkan skema gratis ongkir dengan minimum pembelanjaan sedikit di atas nilai AOV saat ini guna menaikkan target keranjang belanja sebesar 15% pada kuartal mendatang.</li>
   `;
 }

@@ -161,6 +161,9 @@
           <span>Filter Data</span>
         </div>
         <div class="filter-group">
+          <select id="filterTahun" class="filter-select" aria-label="Filter Tahun">
+            <option value="ALL">Semua Tahun</option>
+          </select>
           <select id="filterRegion" class="filter-select" aria-label="Filter Region">
             <option value="ALL">Semua Region</option>
           </select>
@@ -243,8 +246,8 @@
           <div class="panel-visual col-12">
             <div class="panel-header">
               <div>
-                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Total Penjualan Kuartal Terakhir (Q4 2026)</h2>
-                <p class="panel-subtitle">Perbandingan volume sales 3 bulan penutup tahun 2026.</p>
+                <h2 class="panel-title" id="v1BarTitle"><i class="fas fa-chart-bar"></i> Total Penjualan Kuartal Terakhir (Q4 2026)</h2>
+                <p class="panel-subtitle" id="v1BarSub">Perbandingan volume sales 3 bulan penutup tahun 2026.</p>
               </div>
             </div>
             <div id="v1-legend" class="chart-legend" style="justify-content: center; margin-bottom: 0.5rem; margin-top: 0.5rem;"></div>
@@ -268,7 +271,7 @@
           <div class="panel-visual col-12">
             <div class="panel-header">
               <div>
-                <h2 class="panel-title"><i class="fas fa-align-left"></i> Total Penjualan per Kuartal (Tahun 2026)</h2>
+                <h2 class="panel-title" id="v2BarTitle"><i class="fas fa-align-left"></i> Total Penjualan per Kuartal (Tahun 2026)</h2>
                 <p class="panel-subtitle">Membandingkan volume sales 4 kuartal terakhir dengan indikator warna berdasarkan pencapaian kuartal tertinggi.</p>
               </div>
             </div>
@@ -321,11 +324,6 @@
                 <h2 class="panel-title" id="v3Title"><i class="fas fa-chart-area"></i> Tren Penjualan Bulanan</h2>
                 <p class="panel-subtitle">Garis putus-putus menunjukkan Target Sales bulanan. Titik puncak (peak) dan
                   lembah (trough) di-highlight khusus.</p>
-              </div>
-              <div>
-                <select id="filterTahunV3" class="filter-select" aria-label="Filter Tahun">
-                  <!-- Options populated dynamically -->
-                </select>
               </div>
             </div>
             <div class="chart-container large">
@@ -434,7 +432,7 @@
                   <tr>
                     <th scope="col">Nama Region</th>
                     <th scope="col" class="text-right">Sales Revenue</th>
-                    <th scope="col" class="text-center">Growth YoY (2026 vs 2025)</th>
+                    <th scope="col" class="text-center" id="v5TableGrowthHeader">Growth YoY (2026 vs 2025)</th>
                     <th scope="col" class="text-center">Total Customers</th>
                     <th scope="col" class="text-center">Motor Kategori Utama</th>
                   </tr>

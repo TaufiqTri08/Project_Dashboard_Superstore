@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SuperStore Sales Dashboard - Premium Interactive Analytics</title>
+  <meta name="description"
+    content="Dashboard Analisis Penjualan Superstore Interaktif. Dilengkapi visualisasi premium bertema cyberpunk neon untuk 7 skenario analisis data penjualan.">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="index.css">
+
+  <!-- Website Tab Icon (Favicon) -->
+  <link rel="icon" type="image/png" href="LogoJT.png">
+
+  <!-- Chart.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+  <!-- LOADING OVERLAY -->
+  <div id="loaderOverlay" class="loader-overlay">
+    <div class="spinner"></div>
+    <div id="loaderText" class="loader-text">Memproses file JSON...</div>
+  </div>
+
+  <!-- CORS / MANUAL UPLOAD SCREEN OVERLAY -->
+  <div id="uploadOverlay" class="upload-overlay" style="display: none;">
+    <div class="upload-card">
+      <div class="upload-icon-container">
+        <i class="fas fa-cloud-upload-alt"></i>
+      </div>
+      <h2 class="upload-title">Unggah Dataset Superstore</h2>
+      <p class="upload-text">
+        Dataset <code>sample_-_superstoreHirarkiQuartal.json</code> terdeteksi di workspace, namun browser memblokir
+        pembacaan file otomatis karena batasan keamanan CORS (ketika halaman dijalankan via protokol
+        <code>file://</code>).
+      </p>
+
+      <!-- Drag & Drop Zone -->
+      <div id="dropzone" class="dropzone">
+        <i class="fas fa-file-invoice-dollar"></i>
+        <p>Tarik & Lepaskan file <strong>Superstore</strong> di sini</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">atau klik untuk menelusuri folder
+          komputer Anda</p>
+        <input type="file" id="fileInput" style="display: none;" accept=".json">
+      </div>
+
+      <!-- Alternatif Local Server -->
+      <details class="server-instructions">
+        <summary><i class="fas fa-terminal"></i> Alternatif: Jalankan Server Lokal</summary>
+        <p style="margin-top: 8px; color: var(--text-muted); line-height: 1.4;">
+          Agar browser dapat memuat data secara otomatis tanpa perlu mengunggah file secara manual, jalankan perintah
+          server lokal di folder workspace ini:
+        </p>
+        <code>npx live-server</code>
+        <p style="margin-top: 8px; color: var(--text-muted); line-height: 1.4;">
+          Kemudian buka alamat yang ditampilkan (biasanya <code>http://127.0.0.1:8080</code>) pada browser Anda.
+        </p>
+      </details>
+
+      <button class="btn-browse" onclick="document.getElementById('fileInput').click()">Pilih File Manual</button>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div class="app-container">
+
+    <!-- SIDEBAR NAVIGATION -->
+    <aside class="sidebar">
+      <div class="logo-container">
+        <img src="LogoJT.png" alt="Logo" class="logo-img">
+        <div>
+          <span class="logo-text">SuperStore</span>
+          <span class="logo-sub">Sales Analytics</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <li class="nav-item active">
+          <a class="nav-link" data-view="view1" id="nav-v1">
+            <i class="fas fa-chart-line"></i>
+            <span>1. Dashboard </span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-view="view2" id="nav-v2">
+            <i class="fas fa-history"></i>
+            <span>2. Overview Historis</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-view="view3" id="nav-v3">
+            <i class="fas fa-wave-square"></i>
+            <span>3. Tren Bulanan</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-view="view4" id="nav-v4">
+            <i class="fas fa-funnel-dollar"></i>
+            <span>4. Profit per Kategori</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-view="view5" id="nav-v5">
+            <i class="fas fa-globe"></i>
+            <span>5. Analisis Region</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-view="view6" id="nav-v6">
+            <i class="fas fa-trophy"></i>
+            <span>6. Performa State</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-view="view7" id="nav-v7">
+            <i class="fas fa-clipboard-list"></i>
+            <span>7. Ringkasan & Aksi</span>
+          </a>
+        </li>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-card">
+          <div class="status-header">
+            <span id="statusDot" class="status-dot"></span>
+            <span>Status Dataset</span>
+          </div>
+          <span id="statusText" class="status-text">Menunggu Dataset...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="main-content">
+
+      <!-- TOP HEADER BAR -->
+      <header class="top-header">
+        <div class="header-title-container">
+          <h1 id="activeViewTitle">Dashboard Pembuka (Hook)</h1>
+          <p id="activeViewSub">Gambaran performa bisnis Superstore secara menyeluruh dan indikator pertumbuhan penutup
+            tahun.</p>
+        </div>
+        <div class="header-actions">
+          <div id="dataBadge" class="data-badge">
+            <i class="fas fa-exclamation-triangle" style="color: var(--warning)"></i> No Data Loaded
+          </div>
+        </div>
+      </header>
+
+      <!-- INTERACTIVE FILTERS BAR -->
+      <section class="filter-bar" aria-label="Interactive Filters">
+        <div class="filter-title">
+          <i class="fas fa-filter"></i>
+          <span>Filter Data</span>
+        </div>
+        <div class="filter-group">
+          <select id="filterRegion" class="filter-select" aria-label="Filter Region">
+            <option value="ALL">Semua Region</option>
+          </select>
+          <select id="filterSegment" class="filter-select" aria-label="Filter Segment">
+            <option value="ALL">Semua Segment</option>
+          </select>
+          <select id="filterCategory" class="filter-select" aria-label="Filter Kategori">
+            <option value="ALL">Semua Kategori</option>
+          </select>
+          <button id="btnResetFilters" class="btn-reset" aria-label="Reset Filter">
+            <i class="fas fa-redo-alt"></i>
+            <span>Reset</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- =========================================================================
+           VIEW 1 - PEMBUKA (HOOK)
+           ========================================================================= -->
+      <div id="view1" class="view-container active" data-title="Dashboard Pembuka (Hook)"
+        data-subtitle="Gambaran performa bisnis Superstore secara menyeluruh dan indikator pertumbuhan penutup tahun.">
+
+        <!-- KPI Cards Grid -->
+        <div class="grid-kpi">
+          <!-- Total Sales -->
+          <div class="card-kpi primary">
+            <div class="kpi-header">
+              <span>Total Sales</span>
+              <div class="kpi-icon"><i class="fas fa-dollar-sign"></i></div>
+            </div>
+            <div id="v1-sales-val" class="kpi-value">$0</div>
+            <div class="kpi-footer">
+              <span id="v1-sales-growth" class="trend-badge"><i class="fas fa-arrow-up"></i> +0%</span>
+              <span class="kpi-footer-text">vs Kuartal Lalu</span>
+            </div>
+          </div>
+
+          <!-- Total Orders -->
+          <div class="card-kpi success">
+            <div class="kpi-header">
+              <span>Total Orders</span>
+              <div class="kpi-icon"><i class="fas fa-shopping-bag"></i></div>
+            </div>
+            <div id="v1-orders-val" class="kpi-value">0</div>
+            <div class="kpi-footer">
+              <span id="v1-orders-growth" class="trend-badge"><i class="fas fa-arrow-up"></i> +0%</span>
+              <span class="kpi-footer-text">vs Kuartal Lalu</span>
+            </div>
+          </div>
+
+          <!-- Average Order Value -->
+          <div class="card-kpi warning">
+            <div class="kpi-header">
+              <span>Avg Order Value</span>
+              <div class="kpi-icon"><i class="fas fa-calculator"></i></div>
+            </div>
+            <div id="v1-aov-val" class="kpi-value">$0.00</div>
+            <div class="kpi-footer">
+              <span id="v1-aov-growth" class="trend-badge"><i class="fas fa-arrow-up"></i> +0%</span>
+              <span class="kpi-footer-text">vs Kuartal Lalu</span>
+            </div>
+          </div>
+
+          <!-- Total Customers -->
+          <div class="card-kpi danger">
+            <div class="kpi-header">
+              <span>Total Customers</span>
+              <div class="kpi-icon"><i class="fas fa-users"></i></div>
+            </div>
+            <div id="v1-customers-val" class="kpi-value">0</div>
+            <div class="kpi-footer">
+              <span id="v1-customers-growth" class="trend-badge"><i class="fas fa-arrow-up"></i> +0%</span>
+              <span class="kpi-footer-text">vs Kuartal Lalu</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Monthly Sales Bar Chart Section -->
+        <div class="grid-dashboard">
+          <div class="panel-visual col-12">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Total Penjualan Kuartal Terakhir (Q4 2026)</h2>
+                <p class="panel-subtitle">Perbandingan volume sales 3 bulan penutup tahun 2026.</p>
+              </div>
+            </div>
+            <div class="chart-container large">
+              <canvas id="v1SalesChart"></canvas>
+            </div>
+            <div id="v1-insight-text" class="insight-box">
+              Memproses penjelasan analisis data...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =========================================================================
+           VIEW 2 - OVERVIEW HISTORIS (CONTEXT)
+           ========================================================================= -->
+      <div id="view2" class="view-container" data-title="Overview Historis (Context)"
+        data-subtitle="Analisis performa bisnis per kuartal di sepanjang tahun berjalan.">
+        <div class="grid-dashboard">
+          <!-- Horizontal Chart Sales per Kuartal -->
+          <div class="panel-visual col-12">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title"><i class="fas fa-align-left"></i> Total Penjualan per Kuartal (Tahun 2026)</h2>
+                <p class="panel-subtitle">Membandingkan volume sales 4 kuartal terakhir. Highlight kuartal puncak
+                  menggunakan warna hijau.</p>
+              </div>
+            </div>
+            <div class="chart-container large">
+              <canvas id="v2QuartersChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Data Table Details -->
+          <div class="panel-visual col-12">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title"><i class="fas fa-table"></i> Rincian Finansial & Matriks Penjualan per Kuartal
+                </h2>
+                <p class="panel-subtitle">Tabel analisis perbandingan performa penjualan kuartalan secara detail beserta
+                  growth rate.</p>
+              </div>
+            </div>
+            <div class="table-wrapper">
+              <table class="custom-table" aria-label="Rincian Matriks Finansial per Kuartal">
+                <thead>
+                  <tr>
+                    <th scope="col">Kuartal</th>
+                    <th scope="col" class="text-right">Sales Revenue</th>
+                    <th scope="col" class="text-center">Total Orders</th>
+                    <th scope="col" class="text-right">Avg Order Value (AOV)</th>
+                    <th scope="col" class="text-center">Active Customers</th>
+                    <th scope="col" class="text-center">Growth vs Q-1</th>
+                  </tr>
+                </thead>
+                <tbody id="v2-table-body">
+                  <!-- Dynamic rows generated in app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =========================================================================
+           VIEW 3 - TREN BULANAN (TENSION)
+           ========================================================================= -->
+      <div id="view3" class="view-container" data-title="Tren Bulanan (Tension)"
+        data-subtitle="Visualisasi pergerakan volume penjualan bulanan guna mengukur volatilitas pasar.">
+        <div class="grid-dashboard">
+          <div class="panel-visual col-12">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title"><i class="fas fa-chart-area"></i> Tren Penjualan Bulanan (Tahun 2026)</h2>
+                <p class="panel-subtitle">Garis putus-putus menunjukkan Target Sales bulanan. Titik puncak (peak) dan
+                  lembah (trough) di-highlight khusus.</p>
+              </div>
+            </div>
+            <div class="chart-container large">
+              <canvas id="v3TrendChart"></canvas>
+            </div>
+            <div id="v3-insight-text" class="insight-box">
+              Memproses penjelasan analisis data bulanan...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =========================================================================
+           VIEW 4 - PROFITABILITY BY CATEGORY (TENSION/INSIGHT)
+           ========================================================================= -->
+      <div id="view4" class="view-container" data-title="Profitability by Category (Tension/Insight)"
+        data-subtitle="Mengidentifikasi gap antara besarnya volume penjualan dengan margin laba bersih produk.">
+        <div class="grid-dashboard">
+          
+          <!-- Left Column (1/3): Donut Chart -->
+          <div class="panel-visual col-4">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title"><i class="fas fa-chart-pie"></i> Total Profit by Category</h2>
+              </div>
+            </div>
+            <div class="chart-container large">
+              <canvas id="v4DonutChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Right Column (2/3): Bar Charts -->
+          <div class="panel-visual col-8">
+            <!-- Top Horizontal Chart: Sales Volume -->
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title"><i class="fas fa-shopping-basket"></i> Sales per Sub-Category</h2>
+                <p class="panel-subtitle">Diurutkan dari penjualan terbesar hingga terkecil.</p>
+              </div>
+            </div>
+            <div class="chart-container double-height">
+              <canvas id="v4SalesChart"></canvas>
+            </div>
+
+            <!-- Bottom Horizontal Chart: Profit Margin -->
+            <div class="panel-header" style="margin-top: 1.5rem;">
+              <div>
+                <h2 class="panel-title"><i class="fas fa-percentage"></i> Profit Margin per Sub-Category (%)</h2>
+                <p class="panel-subtitle">Urutan label disamakan dengan volume sales.</p>
+              </div>
+            </div>
+            <div class="chart-legend" style="justify-content: center; margin-bottom: 0.5rem; margin-top: 0.5rem;">
+              <div class="legend-item" data-tooltip="Margin laba positif (0% atau lebih)">
+                <span class="legend-color legend-green"></span>
+              </div>
+              <div class="legend-item" data-tooltip="Margin laba negatif / merugi (Di bawah 0%)">
+                <span class="legend-color legend-red"></span>
+              </div>
+            </div>
+            <div class="chart-container double-height">
+              <canvas id="v4MarginChart"></canvas>
+            </div>
+            
+            <div id="v4-insight-text" class="insight-box" style="margin-top: 1rem;">
+              Memproses penjelasan kesenjangan margin dan volume penjualan...
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
+      <!-- =========================================================================
+           VIEW 5 - ANALISIS REGION (INSIGHT)
+           ========================================================================= -->
+      <div id="view5" class="view-container" data-title="Analisis Region (Insight)"
+        data-subtitle="Menyelidiki sebaran performa penjualan berdasarkan cakupan wilayah regional.">
+        <div class="grid-dashboard">
+          <!-- Regional Chart -->
+          <div class="panel-visual col-12">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title"><i class="fas fa-chart-bar"></i> Total Penjualan Berdasarkan Wilayah Regional
+                </h2>
+                <p class="panel-subtitle">Menilai region terkuat. Highlight performa regional terbaik menggunakan warna
+                  hijau.</p>
+              </div>
+            </div>
+            <div class="chart-container large">
+              <canvas id="v5RegionChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Table Regional Performance details -->
+          <div class="panel-visual col-12">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title"><i class="fas fa-list-ul"></i> Detail Performa Finansial Regional & Produk Utama
+                </h2>
+                <p class="panel-subtitle">Matriks pertumbuhan penjualan tahunan, jumlah customer regional, dan motor
+                  kategori produk terkuat.</p>
+              </div>
+            </div>
+            <div class="table-wrapper">
+              <table class="custom-table" aria-label="Rincian Performa Finansial Regional">
+                <thead>
+                  <tr>
+                    <th scope="col">Nama Region</th>
+                    <th scope="col" class="text-right">Sales Revenue</th>
+                    <th scope="col" class="text-center">Growth YoY (2026 vs 2025)</th>
+                    <th scope="col" class="text-center">Total Customers</th>
+                    <th scope="col" class="text-center">Motor Kategori Utama</th>
+                  </tr>
+                </thead>
+                <tbody id="v5-table-body">
+                  <!-- Dynamic rows generated in app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =========================================================================
+           VIEW 6 - PERFORMA STATE (CLIMAX)
+           ========================================================================= -->
+      <div id="view6" class="view-container" data-title="Performa State (Climax)"
+        data-subtitle="Menyingkap konsentrasi dominasi sales di tingkat wilayah administratif (State).">
+        <div class="grid-dashboard">
+          <div class="panel-visual col-12">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title"><i class="fas fa-trophy"></i> Top 10 State dengan Penjualan Tertinggi Nasional
+                </h2>
+                <p class="panel-subtitle">Diurutkan berdasarkan kontribusi revenue terbesar ke terkecil.</p>
+              </div>
+            </div>
+            <div class="chart-container large">
+              <canvas id="v6StateChart"></canvas>
+            </div>
+            <div id="v6-insight-text" class="insight-box">
+              Memproses ringkasan analisis performa State...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =========================================================================
+           VIEW 7 - RINGKASAN & TEMUAN UTAMA (ACTION)
+           ========================================================================= -->
+      <div id="view7" class="view-container" data-title="Ringkasan & Temuan Utama (Action)"
+        data-subtitle="Rencana tindakan operasional dan rekomendasi strategis berdasarkan temuan kunci.">
+
+        <div class="grid-action-cards">
+          <!-- Card 1: Q4 Sales Growth (Success - Green border) -->
+          <div class="card-action positive">
+            <div class="card-action-header">
+              <div class="card-action-icon"><i class="fas fa-chart-line"></i></div>
+              <h2 class="card-action-title">Pertumbuhan Finansial Q4 2026</h2>
+            </div>
+            <p id="v7-card1-body" class="card-action-text">
+              Kuartal penutup mencatatkan performa gemilang dengan pertumbuhan sales yang sangat memuaskan di penghujung
+              tahun berjalan.
+            </p>
+            <ul id="v7-card1-bullets" class="card-action-bullets">
+              <!-- Dynamically populated in app.js -->
+            </ul>
+          </div>
+
+          <!-- Card 2: Region YoY Growth (Info - Cyan border) -->
+          <div class="card-action info">
+            <div class="card-action-header">
+              <div class="card-action-icon"><i class="fas fa-map-marked-alt"></i></div>
+              <h2 class="card-action-title">Aktivitas Wilayah Paling Agresif</h2>
+            </div>
+            <p id="v7-card2-body" class="card-action-text">
+              Wilayah regional tertentu memegang tonggak dominasi sales tertinggi dengan tingkat loyalitas customer yang
+              kuat.
+            </p>
+            <ul id="v7-card2-bullets" class="card-action-bullets">
+              <!-- Dynamically populated in app.js -->
+            </ul>
+          </div>
+
+          <!-- Card 3: Furniture Margin Concern (Critical - Red border) -->
+          <div class="card-action critical">
+            <div class="card-action-header">
+              <div class="card-action-icon"><i class="fas fa-exclamation-triangle"></i></div>
+              <h2 class="card-action-title">Restrukturisasi Profit Kategori Furniture</h2>
+            </div>
+            <p id="v7-card3-body" class="card-action-text">
+              Volume penjualan furniture yang besar ternyata berbanding terbalik dengan profit margin yang dikumpulkan
+              akibat erosi operasional.
+            </p>
+            <ul id="v7-card3-bullets" class="card-action-bullets">
+              <!-- Dynamically populated in app.js -->
+            </ul>
+          </div>
+
+          <!-- Card 4: AOV Stable & Action Plan (Warning - Yellow border) -->
+          <div class="card-action warning">
+            <div class="card-action-header">
+              <div class="card-action-icon"><i class="fas fa-lightbulb"></i></div>
+              <h2 class="card-action-title">Tren AOV & Paket Bundling Strategis</h2>
+            </div>
+            <p id="v7-card4-body" class="card-action-text">
+              Rata-rata Nilai Pesanan (AOV) berada di level aman, namun butuh stimulus cross-selling tambahan untuk
+              menaikkan basket size belanja.
+            </p>
+            <ul id="v7-card4-bullets" class="card-action-bullets">
+              <!-- Dynamically populated in app.js -->
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Custom JavaScript Controller -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+
+</body>
+
+</html>

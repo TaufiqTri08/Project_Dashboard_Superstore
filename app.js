@@ -607,8 +607,20 @@ function renderView2() {
     { year: activeYear, q: 'Q4', label: `Q4 ${activeYear}`, sales: 0, orders: 0, customers: new Set(), prevSales: 0 }
   ];
   
+  // Get current filters (excluding year) to calculate Q4 of previous year accurately
+  const regionVal = document.getElementById('filterRegion').value;
+  const segmentVal = document.getElementById('filterSegment').value;
+  const categoryVal = document.getElementById('filterCategory').value;
+
+  const datasetForPrevQ4 = superstoreData.filter(item => {
+    const matchRegion = regionVal === 'ALL' || item.region === regionVal;
+    const matchSegment = segmentVal === 'ALL' || item.segment === segmentVal;
+    const matchCategory = categoryVal === 'ALL' || item.category === categoryVal;
+    return matchRegion && matchSegment && matchCategory;
+  });
+
   // Fetch prior quarter (Q4 activeYear-1) for Q1 activeYear growth calculations
-  const q4_prev = getQuarterKPIs(activeYear - 1, 'Q4', filteredData);
+  const q4_prev = getQuarterKPIs(activeYear - 1, 'Q4', datasetForPrevQ4);
   quarters[0].prevSales = q4_prev.sales;
   
   // Populate the statistics
